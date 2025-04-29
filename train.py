@@ -4,6 +4,7 @@ from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
 import joblib
 from models.collabFilteringModel import CollaborativeFilteringModel
+from models.knn_cluster_model import KNNRecommender
 
 # Supabase credentials
 SUPABASE_URL = "https://ympkztethjtejhdajsol.supabase.co"
@@ -19,6 +20,9 @@ df_receipts.rename(columns={'id': 'receipt_id'}, inplace=True)
 df_items.rename(columns={'name': 'item_id'}, inplace=True)
 df_merged = pd.merge(df_receipts, df_items, on='receipt_id')
 
+knn = KNNRecommender(n_neighbors=20)
+knn.fit(df_merged[["user_id", "item_id"]])
+knn.save("api/knn")
 user_encoder = LabelEncoder()
 item_encoder = LabelEncoder()
 

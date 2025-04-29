@@ -15,10 +15,10 @@ num_items = len(item_encoder.classes_)
 
 model = CollaborativeFilteringModel(num_users, num_items, embedding_dim=50)
 
-# Build the model by calling it with a tiny sample
+# Load the model weights
 dummy_user = tf.constant([0], dtype=tf.int32)
 dummy_item = tf.constant([0], dtype=tf.int32)
-_ = model([dummy_user, dummy_item])  # forward pass -> "builds" the model
+_ = model([dummy_user, dummy_item])
 
 model.load_weights("my_collab_model.weights.h5")
 
