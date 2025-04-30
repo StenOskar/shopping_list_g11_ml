@@ -8,6 +8,10 @@ import tensorflow as tf
 from supabase import create_client, Client
 from models.collabFilteringModel import CollaborativeFilteringModel
 from models.knn_cluster_model import KNNRecommender
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv('secrets.env')
 
 # Configure logging
 logging.basicConfig(
@@ -17,11 +21,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Load credentials from environment variables
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://ympkztethjtejhdajsol.supabase.co")
-SUPABASE_SERVICE_ROLE = os.environ.get("SUPABASE_SERVICE_ROLE",
-                                       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltcGt6dGV"
-                                       "0aGp0ZWpoZGFqc29sIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNzYyNTMxNSwiZXhwIjoy"
-                                       "MDUzMjAxMzE1fQ.A7FFMWaTtLPNR6GAuV8pqGe6Hs5Z0iQabcqRQqg8mZc")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE = os.getenv("SUPABASE_SERVICE_ROLE")
 
 # Global variables with proper initialization
 auth_client = None
