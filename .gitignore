@@ -4,3 +4,4 @@ venv
 *.log
 *.h5
 __pycache__
+.env
