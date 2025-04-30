@@ -1,15 +1,20 @@
 import tensorflow as tf
 from tensorflow.keras import layers, Model
 
-# This is a simple collaborative filtering model using embeddings
 class CollaborativeFilteringModel(Model):
     def __init__(self, num_users, num_items, embedding_dim=50):
         super().__init__()
         # Embeddings for users and items
-        self.user_embedding = layers.Embedding(num_users, embedding_dim,
-                                               embeddings_initializer='he_normal')
-        self.item_embedding = layers.Embedding(num_items, embedding_dim,
-                                               embeddings_initializer='he_normal')
+        self.user_embedding = layers.Embedding(
+            num_users,
+            embedding_dim,
+            embeddings_initializer='he_normal'
+        )
+        self.item_embedding = layers.Embedding(
+            num_items,
+            embedding_dim,
+            embeddings_initializer='he_normal'
+        )
         self.dot = layers.Dot(axes=1)
 
     def call(self, inputs):
@@ -25,4 +30,14 @@ class CollaborativeFilteringModel(Model):
         score = self.dot([user_vec, item_vec])
         return score
 
+    def recommend_items(self, user_id, item_indices, top_k=5):
+        """Generate recommendations for a user"""
+        # Create batch input
+        user_indices = tf.fill([len(item_indices)], user_id)
 
+        # Predict scores
+        scores = self.predict([user_indices, item_indices], verbose=0).flatten()
+
+        # Get indices of top items
+        top_indices = tf.argsort(scores, direction='DESCENDING')[:top_k]
+        return [item_indices[i] for i in top_indices.numpy()]
