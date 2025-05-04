@@ -8,6 +8,8 @@ import scipy.sparse as sp
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+
+from item_filters import should_exclude_item
 from models.collabFilteringModel import CollaborativeFilteringModel
 from models.knn_cluster_model import KNNRecommender
 from services.data_loader import SupabaseDataLoader
@@ -27,13 +29,19 @@ loader = SupabaseDataLoader(SUPABASE_URL, SUPABASE_KEY)
 df_receipts = loader.fetch_receipts()
 df_items = loader.fetch_receipt_items()
 
-# Prepare data
-
 # Create label encoders
 df_receipts.rename(columns={"id": "receipt_id"}, inplace=True)
 df_items.rename(columns={"name": "item_id"}, inplace=True)
 
 df_merged = pd.merge(df_receipts, df_items, on="receipt_id")
+
+# Filter out stoplist items
+print("Filtering out stoplist items...")
+initial_item_count = len(df_items)
+df_items = df_items[~df_items["item_id"].apply(should_exclude_item)]
+df_merged = pd.merge(df_receipts, df_items, on="receipt_id")
+filtered_count = initial_item_count - len(df_items)
+print(f"Filtered out {filtered_count} stoplist items")
 
 # Fit encoders on all users and items
 user_encoder = LabelEncoder().fit(df_merged["user_id"].unique())
@@ -79,7 +87,7 @@ neg_items_raw = item_encoder.inverse_transform(neg_items)
 df_negative = pd.DataFrame({
     "user_id": neg_users_raw,
     "item_id": neg_items_raw,
-    "label"  : 0.0,
+    "label": 0.0,
 })
 
 df_positive = (
@@ -106,13 +114,11 @@ train_df['item_id_encoded'] = item_encoder.transform(train_df['item_id'])
 val_df['user_id_encoded'] = user_encoder.transform(val_df['user_id'])
 val_df['item_id_encoded'] = item_encoder.transform(val_df['item_id'])
 
-
 print("Training KNN recommender …")
 knn = KNNRecommender(n_neighbors=20)
 knn.fit(df_positive[["user_id", "item_id"]])
 knn.save("api/knn")
 print("KNN model saved")
-
 
 print("Training collaborative‑filtering model …")
 model = CollaborativeFilteringModel(num_users, num_items, embedding_dim=50)
