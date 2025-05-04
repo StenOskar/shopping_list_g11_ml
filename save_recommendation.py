@@ -6,6 +6,8 @@ import numpy as np
 import joblib
 import tensorflow as tf
 from supabase import create_client, Client
+
+from item_filters import should_exclude_item
 from models.collabFilteringModel import CollaborativeFilteringModel
 from models.knn_cluster_model import KNNRecommender
 from dotenv import load_dotenv
@@ -133,7 +135,8 @@ def get_popular_items(top_n: int = 10) -> list[str]:
         item_counts = {}
         for item in items_data:
             name = item["name"]
-            item_counts[name] = item_counts.get(name, 0) + 1
+            if not should_exclude_item(name):
+                item_counts[name] = item_counts.get(name, 0) + 1
 
         # Sort items by count and get the top N
         popular_items = sorted(item_counts.keys(),
@@ -153,12 +156,17 @@ def get_recommendations_for_user(user_id: str) -> list[str]:
     cf_recs = top5_cf(user_id)
     knn_recs = top5_knn(user_id)
 
+    # Filter out unwanted items
+    cf_recs = [item for item in cf_recs if not should_exclude_item(item)]
+    knn_recs = [item for item in knn_recs if not should_exclude_item(item)]
+
     combined = cf_recs + [item for item in knn_recs if item not in cf_recs]
 
-    # If we have no recommendations, use popular items as cold start
-    if not combined:
-        logger.info(f"Using cold start for user {user_id}")
-        combined = get_popular_items(10)
+    # If we have too few recommendations after filtering, use popular items
+    if len(combined) < 5:
+        logger.info(f"Using popular items for user {user_id} after stoplist filtering")
+        popular = [item for item in get_popular_items(20) if not should_exclude_item(item)]
+        combined.extend([item for item in popular if item not in combined])
 
     return combined[:10]
 
