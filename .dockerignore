@@ -1,6 +1,0 @@
-.git
-__pycache__
-*.pkl
-*.weights.h5
-*.h5
-*.log
