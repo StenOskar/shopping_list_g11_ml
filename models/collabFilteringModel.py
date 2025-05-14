@@ -1,6 +1,8 @@
 import tensorflow as tf
 from tensorflow.keras import layers, Model
 
+
+# This code defines a collaborative filtering model using TensorFlow and Keras.
 class CollaborativeFilteringModel(Model):
     def __init__(self, num_users, num_items, embedding_dim=50):
         super().__init__()
@@ -17,6 +19,7 @@ class CollaborativeFilteringModel(Model):
         )
         self.dot = layers.Dot(axes=1)
 
+    # Define the model's input shape
     def call(self, inputs):
         user_ids, item_ids = inputs
         user_vec = self.user_embedding(user_ids)
@@ -30,8 +33,8 @@ class CollaborativeFilteringModel(Model):
         score = self.dot([user_vec, item_vec])
         return score
 
+    # Generate recommendations for a user
     def recommend_items(self, user_id, item_indices, top_k=5):
-        """Generate recommendations for a user"""
         # Create batch input
         user_indices = tf.fill([len(item_indices)], user_id)
 

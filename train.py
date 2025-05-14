@@ -1,14 +1,13 @@
 import os
-from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timezone
 import joblib
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 import tensorflow as tf
+from dotenv import load_dotenv
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-
 from item_filters import should_exclude_item
 from models.collabFilteringModel import CollaborativeFilteringModel
 from models.knn_cluster_model import KNNRecommender
@@ -24,7 +23,6 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE")
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Missing Supabase credentials; set SUPABASE_URL and SUPABASE_SERVICE_ROLE")
 
-print("Fetching data from Supabase …")
 loader = SupabaseDataLoader(SUPABASE_URL, SUPABASE_KEY)
 df_receipts = loader.fetch_receipts()
 df_items = loader.fetch_receipt_items()
@@ -33,15 +31,11 @@ df_items = loader.fetch_receipt_items()
 df_receipts.rename(columns={"id": "receipt_id"}, inplace=True)
 df_items.rename(columns={"name": "item_id"}, inplace=True)
 
-df_merged = pd.merge(df_receipts, df_items, on="receipt_id")
-
-# Filter out stoplist items
-print("Filtering out stoplist items...")
+# Filter out stop list items
 initial_item_count = len(df_items)
 df_items = df_items[~df_items["item_id"].apply(should_exclude_item)]
 df_merged = pd.merge(df_receipts, df_items, on="receipt_id")
 filtered_count = initial_item_count - len(df_items)
-print(f"Filtered out {filtered_count} stoplist items")
 
 # Fit encoders on all users and items
 user_encoder = LabelEncoder().fit(df_merged["user_id"].unique())
@@ -49,9 +43,8 @@ item_encoder = LabelEncoder().fit(df_merged["item_id"].unique())
 
 num_users = len(user_encoder.classes_)
 num_items = len(item_encoder.classes_)
-print(f"Number of users: {num_users:,}  •  Number of items: {num_items:,}")
 
-# Create negative samples
+# Create negative samples, two for each positive sample.
 neg_ratio = 2
 rng = np.random.default_rng(42)
 
@@ -62,6 +55,7 @@ interaction = sp.csr_matrix(
     (np.ones_like(rows, dtype=bool), (rows, cols)), shape=(num_users, num_items)
 )
 
+# Initialize lists for negative samples
 neg_users, neg_items = [], []
 all_items = np.arange(num_items)
 
@@ -78,9 +72,11 @@ for u in range(num_users):
     neg_users.append(np.full(desired_neg, u, dtype=np.int32))
     neg_items.append(sample)
 
+# Concatenate negative samples
 neg_users = np.concatenate(neg_users)
 neg_items = np.concatenate(neg_items)
 
+# Inverse transform to get original user and item IDs
 neg_users_raw = user_encoder.inverse_transform(neg_users)
 neg_items_raw = item_encoder.inverse_transform(neg_items)
 
@@ -97,7 +93,6 @@ df_positive = (
 )
 
 # Encode user and item IDs
-print("Building training dataframe …")
 df_combined = pd.concat([df_positive, df_negative], ignore_index=True)
 df_combined = df_combined.sample(frac=1.0, random_state=42).reset_index(drop=True)
 
@@ -114,13 +109,10 @@ train_df['item_id_encoded'] = item_encoder.transform(train_df['item_id'])
 val_df['user_id_encoded'] = user_encoder.transform(val_df['user_id'])
 val_df['item_id_encoded'] = item_encoder.transform(val_df['item_id'])
 
-print("Training KNN recommender …")
 knn = KNNRecommender(n_neighbors=20)
 knn.fit(df_positive[["user_id", "item_id"]])
 knn.save("api/knn")
-print("KNN model saved")
 
-print("Training collaborative‑filtering model …")
 model = CollaborativeFilteringModel(num_users, num_items, embedding_dim=50)
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
@@ -149,15 +141,13 @@ history = model.fit(
     verbose=1,
 )
 
-# Save model weights and encoders
-
-print("Saving artefacts …")
+# Save the model and encoders
 MODEL_DIR = "api"
 os.makedirs(MODEL_DIR, exist_ok=True)
 model.save_weights(os.path.join(MODEL_DIR, "my_collab_model.weights.h5"))
 joblib.dump(user_encoder, os.path.join(MODEL_DIR, "user_encoder.pkl"))
 joblib.dump(item_encoder, os.path.join(MODEL_DIR, "item_encoder.pkl"))
 
-print("Training complete!  ({} negatives per positive, finished at {})".format(
-    neg_ratio, datetime.utcnow().isoformat()
+print("Training complete ({} negatives per positive, finished at {})".format(
+    neg_ratio, datetime.now(timezone.utc).isoformat()
 ))

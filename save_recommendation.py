@@ -1,12 +1,11 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import logging
 import numpy as np
 import joblib
 import tensorflow as tf
 from supabase import create_client, Client
-
 from item_filters import should_exclude_item
 from models.collabFilteringModel import CollaborativeFilteringModel
 from models.knn_cluster_model import KNNRecommender
@@ -36,8 +35,8 @@ num_users = 0
 num_items = 0
 
 
+# Function to initialize Supabase client
 def initialize_client() -> Client:
-    """Initialize and return Supabase client."""
     try:
         if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE:
             raise ValueError("Missing Supabase credentials")
@@ -47,8 +46,8 @@ def initialize_client() -> Client:
         raise
 
 
+# Function to load models and encoders
 def load_models():
-    """Load all recommendation models and encoders."""
     global auth_client, user_encoder, item_encoder, cf_model, knn_model, num_users, num_items
 
     try:
@@ -96,8 +95,8 @@ def load_models():
         raise
 
 
+# Function to get top 5 recommendations using CF
 def top5_cf(user_id: str) -> list[str]:
-    """Generate top 5 recommendations using CF model."""
     try:
         if user_id not in user_encoder.classes_:
             logger.info(f"User {user_id} not found in CF training data")
@@ -112,9 +111,10 @@ def top5_cf(user_id: str) -> list[str]:
         return item_encoder.inverse_transform(top_indices).tolist()
     except Exception as e:
         logger.error(f"Error generating CF recommendations for user {user_id}: {e}")
-        return []  # Graceful degradation
+        return []
 
 
+# Function to get top 5 recommendations using KNN
 def top5_knn(user_id: str) -> list[str]:
     """Generate top 5 recommendations using KNN model."""
     try:
@@ -124,6 +124,7 @@ def top5_knn(user_id: str) -> list[str]:
         return []
 
 
+# Function to get popular items
 def get_popular_items(top_n: int = 10) -> list[str]:
     """Get the most popular items based on purchase frequency."""
     try:
@@ -159,12 +160,11 @@ def get_recommendations_for_user(user_id: str) -> list[str]:
     # Filter out unwanted items
     cf_recs = [item for item in cf_recs if not should_exclude_item(item)]
     knn_recs = [item for item in knn_recs if not should_exclude_item(item)]
-
     combined = cf_recs + [item for item in knn_recs if item not in cf_recs]
 
     # If we have too few recommendations after filtering, use popular items
     if len(combined) < 5:
-        logger.info(f"Using popular items for user {user_id} after stoplist filtering")
+        logger.info(f"Using popular items for user {user_id} after stop list filtering")
         popular = [item for item in get_popular_items(20) if not should_exclude_item(item)]
         combined.extend([item for item in popular if item not in combined])
 
@@ -179,7 +179,6 @@ def process_all_users():
         except Exception as e:
             logger.error(f"Cannot process users: {e}")
             return
-
     try:
         users_response = auth_client.table("profiles").select("id").execute()
         users = users_response.data
@@ -196,7 +195,7 @@ def process_all_users():
 
             combined = get_recommendations_for_user(uid)
 
-            # Use cached popular items if no recommendations were found
+            # If we couldn't get any recommendations, use popular items
             if not combined:
                 logger.info(f"Using cached popular items for user {uid}")
                 combined = popular_items
@@ -206,7 +205,7 @@ def process_all_users():
                     {
                         "user_id": uid,
                         "items": combined,
-                        "updated_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
                     }
                 ).execute()
                 success += 1
@@ -220,6 +219,7 @@ def process_all_users():
     logger.info(f"Recommendations updated for {success} users. Skipped {skipped} users.")
 
 
+# Main function to run the script
 if __name__ == "__main__":
     try:
         load_models()
