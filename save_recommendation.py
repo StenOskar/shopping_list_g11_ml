@@ -56,8 +56,8 @@ def load_models():
 
         # Load label encoders
         try:
-            user_encoder = joblib.load("api/user_encoder.pkl")
-            item_encoder = joblib.load("api/item_encoder.pkl")
+            user_encoder = joblib.load("weights/user_encoder.pkl")
+            item_encoder = joblib.load("weights/item_encoder.pkl")
             num_users = len(user_encoder.classes_)
             num_items = len(item_encoder.classes_)
         except FileNotFoundError as e:
@@ -71,7 +71,7 @@ def load_models():
         try:
             cf_model = CollaborativeFilteringModel(num_users, num_items)
             cf_model([tf.constant([0]), tf.constant([0])])
-            cf_model.load_weights("api/my_collab_model.weights.h5")
+            cf_model.load_weights("weights/my_collab_model.weights.h5")
         except (FileNotFoundError, tf.errors.NotFoundError) as e:
             logger.error(f"CF model file not found: {e}")
             raise
@@ -82,7 +82,7 @@ def load_models():
         # Load KNN recommender
         try:
             knn_model = KNNRecommender()
-            knn_model.load("api/knn")
+            knn_model.load("weights/knn")
         except FileNotFoundError as e:
             logger.error(f"KNN model file not found: {e}")
             raise

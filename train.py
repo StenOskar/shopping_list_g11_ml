@@ -111,7 +111,7 @@ val_df['item_id_encoded'] = item_encoder.transform(val_df['item_id'])
 
 knn = KNNRecommender(n_neighbors=20)
 knn.fit(df_positive[["user_id", "item_id"]])
-knn.save("api/knn")
+knn.save("weights/knn")
 
 model = CollaborativeFilteringModel(num_users, num_items, embedding_dim=50)
 model.compile(
@@ -142,7 +142,7 @@ history = model.fit(
 )
 
 # Save the model and encoders
-MODEL_DIR = "api"
+MODEL_DIR = "weights"
 os.makedirs(MODEL_DIR, exist_ok=True)
 model.save_weights(os.path.join(MODEL_DIR, "my_collab_model.weights.h5"))
 joblib.dump(user_encoder, os.path.join(MODEL_DIR, "user_encoder.pkl"))

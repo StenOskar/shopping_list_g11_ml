@@ -10,6 +10,7 @@ def get_stop_list():
         "pose",
         "plastpose",
         "handlepose",
+        "Barepose"
     }
 
 
