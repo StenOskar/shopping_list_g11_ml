@@ -27,9 +27,6 @@ Supabase so the Flutter app can surface them in Shopping Suggestions.
 - $ python -m venv .venv
 - $ source .venv/bin/activate
 
-### 3 Install dependencies
-$ pip install -r requirements.txt
-
 ## Configuration
 All secrets are read from secrets.env.  Create the file at the repo root:
 - SUPABASE_URL=https://your‑project.supabase.co
